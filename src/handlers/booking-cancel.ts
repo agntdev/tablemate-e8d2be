@@ -1,17 +1,18 @@
 import { Composer } from "grammy";
+import type { Ctx } from "../bot.js";
+import { inlineButton, inlineKeyboard } from "../toolkit/index.js";
+import { bookingForGuest, cancelBooking, removeGuestReminder } from "../reservation-domain.js";
 
-// SCAFFOLD — generated from the bot blueprint BEFORE the agent runs.
-// Keep a LIVE registration (.command / .callbackQuery / …) so this feature is
-// never an empty stub. Replace the reply body with real logic + copy; if you
-// change the user-facing text, update tests/specs to match EXACTLY.
-// Do NOT rewrite src/bot.ts — buildBot() already auto-loads this module.
-// Menu: wire this into /start via registerMainMenuItem({ label: "Cancel", data: "booking:cancel" }) if the toolkit exposes it.
-
-const composer = new Composer();
-
+const composer = new Composer<Ctx>();
 composer.callbackQuery("booking:cancel", async (ctx) => {
   await ctx.answerCallbackQuery();
-  await ctx.reply("Cancel reservation");
+  const booking = await bookingForGuest(ctx);
+  if (!booking) { await ctx.editMessageText("You don’t have a reservation to cancel.", { reply_markup: inlineKeyboard([[inlineButton("Back to menu", "menu:main")]]) }); return; }
+  await ctx.editMessageText(`Cancel your table on ${booking.datetime.slice(0, 10)} at ${booking.datetime.slice(11, 16)}?`, { reply_markup: inlineKeyboard([[inlineButton("Cancel reservation", `cancel:yes:${booking.id}`)], [inlineButton("Keep it", "booking:mine")]]) });
 });
-
+composer.callbackQuery(/^cancel:yes:b\d+$/, async (ctx) => {
+  await ctx.answerCallbackQuery();
+  const booking = await cancelBooking(ctx, ctx.callbackQuery.data.slice("cancel:yes:".length)); if (booking) await removeGuestReminder(ctx, booking);
+  await ctx.editMessageText(booking ? "Your reservation is cancelled. We hope to welcome you another time." : "That reservation is already closed.", { reply_markup: inlineKeyboard([[inlineButton("Back to menu", "menu:main")]]) });
+});
 export default composer;

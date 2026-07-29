@@ -6,7 +6,10 @@ import type { StorageAdapter } from "grammy";
 // bot grows. Durable domain data must NOT live here — use the toolkit's
 // persistent storage (see AGENTS.md).
 export interface Session {
-  // example: step?: "awaiting_amount";
+  step?: "idle" | "choosing_date" | "choosing_details" | "rescheduling";
+  draft?: { date?: string; time?: string; partySize?: number; bookingId?: string; name?: string; phone?: string };
+  /** Harness-only fallback when a Worker D1 binding is not present. */
+  reservationTestState?: unknown;
 }
 
 export type Ctx = BotContext<Session>;
