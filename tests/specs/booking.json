@@ -1,0 +1,14 @@
+[
+  {"name":"Guest can reserve an available table end to end","steps":[
+    {"send":{"callback":"booking:new"},"expect":[{"method":"editMessageText","payload":{"text":"Choose the day you’d like to visit."}}]},
+    {"send":{"callback":"book:date:2099-01-02"},"expect":[{"method":"editMessageText","payload":{"text":"Here are the times we can welcome you on 2099-01-02. Choose one, then we’ll check the right table for your party."}}]},
+    {"send":{"callback":"book:time:12:00"},"expect":[{"method":"editMessageText","payload":{"text":"How many guests are joining you?"}}]},
+    {"send":{"callback":"book:size:4"},"expect":[{"method":"editMessageText","payload":{"text":"Your 12:00 table for 4 is available. Add your name and phone number, or keep it simple."}}]},
+    {"send":{"callback":"book:confirm"},"expect":[{"method":"editMessageText","payload":{"text":"Your table is confirmed for 2099-01-02 at 12:00 for 4. Your reference is R-0001."}}]},
+    {"send":{"callback":"booking:reschedule"},"expect":[{"method":"editMessageText","payload":{"text":"Choose a new day for your table."}}]},
+    {"send":{"callback":"move:date:2099-01-03"},"expect":[{"method":"editMessageText","payload":{"text":"Choose an available time."}}]},
+    {"send":{"callback":"move:time:13:00"},"expect":[{"method":"editMessageText","payload":{"text":"Your reservation is moved to 2099-01-03 at 13:00. Your new reference is R-0002."}}]},
+    {"send":{"callback":"booking:cancel"},"expect":[{"method":"editMessageText","payload":{"text":"Cancel your table on 2099-01-03 at 13:00?"}}]},
+    {"send":{"callback":"cancel:yes:b1"},"expect":[{"method":"editMessageText","payload":{"text":"Your reservation is cancelled. We hope to welcome you another time."}}]}
+  ]}
+]

@@ -46,6 +46,7 @@ export interface WorkerEnv {
 }
 
 interface Reminder {
+  id?: string;
   at: number; // epoch ms
   chatId: number | string;
   text: string;
@@ -93,16 +94,25 @@ export async function remindAt(
   chatId: number | string,
   whenEpochMs: number,
   text: string,
+  id?: string,
 ): Promise<void> {
   try {
     const stub = env.CHAT_DO.get(env.CHAT_DO.idFromName("chat:" + chatId));
     await stub.fetch("https://do/remind", {
       method: "POST",
-      body: JSON.stringify({ at: whenEpochMs, chatId, text } satisfies Reminder),
+      body: JSON.stringify({ at: whenEpochMs, chatId, text, id } satisfies Reminder),
     });
   } catch {
     /* best-effort: a reminder we couldn't schedule must not break the reply */
   }
+}
+
+/** Remove a not-yet-sent reminder when a booking is cancelled or moved. */
+export async function cancelReminder(env: WorkerEnv, chatId: number | string, id: string): Promise<void> {
+  try {
+    const stub = env.CHAT_DO.get(env.CHAT_DO.idFromName("chat:" + chatId));
+    await stub.fetch("https://do/remind", { method: "DELETE", body: JSON.stringify({ id }) });
+  } catch { /* best effort */ }
 }
 
 async function tg(token: string, method: string, payload: unknown): Promise<void> {
@@ -144,6 +154,19 @@ export class ChatDO {
       }
     }
 
+    // One explicit restaurant-domain record. This is intentionally separate
+    // from per-chat session state and avoids keyspace enumeration.
+    if (url.pathname === "/domain") {
+      if (request.method === "GET") {
+        const value = await this.state.storage.get<unknown>("domain");
+        return value === undefined ? new Response(null, { status: 204 }) : Response.json(value);
+      }
+      if (request.method === "PUT") {
+        await this.state.storage.put("domain", await request.json());
+        return new Response(null, { status: 204 });
+      }
+    }
+
     // Schedule a reminder + (re)arm the alarm to the earliest due one.
     if (url.pathname === "/remind" && request.method === "POST") {
       const rem = (await request.json()) as Reminder;
@@ -151,6 +174,14 @@ export class ChatDO {
       list.push(rem);
       await this.state.storage.put("reminders", list);
       await this.rearm(list);
+      return new Response(null, { status: 204 });
+    }
+    if (url.pathname === "/remind" && request.method === "DELETE") {
+      const { id } = (await request.json()) as { id: string };
+      const list = (await this.state.storage.get<Reminder[]>("reminders")) ?? [];
+      const remaining = list.filter((reminder) => reminder.id !== id);
+      await this.state.storage.put("reminders", remaining);
+      await this.rearm(remaining);
       return new Response(null, { status: 204 });
     }
 
